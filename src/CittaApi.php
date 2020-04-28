@@ -6,15 +6,13 @@
  */
 namespace dynamikaweb\api;
 
-use Yii;
-
 /** 
  *
  * @author Rodrigo Dornelles <rodrigo@dornelles.me> <rodrigo@dynamika.com.br>
  * @version 0.1  (28/04/2020)
  * 
  */
-class CittaApi extends \yii\base\Model
+class CittaApi
 {   
     /**
      * @param string $url_reference
@@ -27,11 +25,10 @@ class CittaApi extends \yii\base\Model
      * __construct
      * 
      * @see Sigleton Pattern
-     *   
      */ 
-    private function  __construct ( $config = [] )
+    private function  __construct ()
     {
-        parent::__construct( $config );
+
     }
 
     /**
@@ -50,25 +47,24 @@ class CittaApi extends \yii\base\Model
             self::$url_reference = $uri;
         }
 
+        // create object
         if(self::$instance === null){
             self::$instance = new self;
         }
 
+        // unice instance
         return self::$instance;
     }
 
     /**
-     * request
+     * run
      * 
-     * dataProvide
-     *
-     * @param array|string $uri 
-     * @return array|void $dataProviderParams
+     * call @api
      * 
-     * @throws CittaException
-     * 
+     * @param string|array $uri
+     * @return object
      */
-    public static function request($uri, $dataProviderParams = [])
+    private static function run($uri)
     {
         $curl = new \Curl\Curl();
         $redirects_count = 0;
@@ -88,7 +84,6 @@ class CittaApi extends \yii\base\Model
         } else {
             throw new CittaException('URI Type Error');
         }
-
 
         // redirect URI
         while (300 <= $curl->http_status_code && $curl->http_status_code < 400){
@@ -114,20 +109,40 @@ class CittaApi extends \yii\base\Model
             }
         }
 
+        // return request
+        return $curl;
+    }
+
+    /**
+     * request
+     * 
+     * dataProvider
+     *
+     * @param array|string $uri 
+     * @return array|void $dataProviderParams
+     * 
+     * @throws CittaException
+     * 
+     */
+    public static function request($uri, $dataProviderParams = [])
+    {
+        // cal; api
+        $api = self::run($uri);
+
         // resquest error
-        if ($curl->error && $curl->http_status_code){
-            throw new CittaException("HTTP Status {$curl->http_status_code} Error");
+        if ($api->error && $api->http_status_code){
+            throw new CittaException("HTTP Status {$api->http_status_code} Error");
         }
 
         // curl error
-        if ($curl->error){
-            throw new CittaException($curl->error_message);
+        if ($api->error){
+            throw new CittaException($api->error_message);
         }
 
-        // return response data
+        // return request
         return new \yii\data\ArrayDataProvider(
             \yii\Helpers\ArrayHelper::merge(
-                ['allModels' =>  \yii\helpers\Json::decode($curl->response, true)],
+                ['allModels' =>  \yii\helpers\Json::decode($api->response, true)],
                 $dataProviderParams
             )
         );
