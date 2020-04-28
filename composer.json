@@ -1,0 +1,36 @@
+{
+    "name": "dynamikaweb/yii2-citta-api",
+    "description": "Citta api dataprovider for Yii2.",
+    "type": "yii2-extension",
+    "keywords": [
+        "dynamika",
+        "yii",
+        "yii2",
+        "yii 2",
+        "extension",
+        "citta"
+    ],
+    "license": "BSD-3-Clause",
+    "authors": [
+        {
+            "name": "RodrigoDornelles",
+            "email": "rodrigo@dornelles.me",
+            "role": "Developer"
+        }
+    ],
+    "support": {
+        "issues": "http://github.com/dynamikaweb/yii2-citta-api/issues",
+        "source": "http://github.com/dynamikaweb/yii2-citta-api"
+    },
+    "require": {
+        "php": ">=5.5.0",
+        "curl/curl": "^2.0"
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "autoload": {
+        "psr-4": {
+            "dynamikaweb\\api\\": "src"
+        }
+    }
+}
