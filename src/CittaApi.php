@@ -26,7 +26,7 @@ class CittaApi
      * 
      * @see Sigleton Pattern
      */ 
-    private function  __construct ()
+    private function  __construct()
     {
 
     }
@@ -43,12 +43,12 @@ class CittaApi
     public static function url($uri = null)
     {   
         // change API URI
-        if($uri !== null){
+        if ($uri !== null) {
             self::$url_reference = $uri;
         }
 
         // create object
-        if(self::$instance === null){
+        if (self::$instance === null) {
             self::$instance = new self;
         }
 
@@ -70,15 +70,15 @@ class CittaApi
         $redirects_count = 0;
 
         // base URI reference
-        if (!self::$url_reference){
+        if (!self::$url_reference) {
             throw new CittaException('URI Reference Error');
         }
         
         // consult URI
-        if (is_array($uri)){
+        if (is_array($uri)) {
             $curl->get(self::$url_reference.\yii\helpers\Url::to($uri));
 
-        } else if (is_string($uri)){
+        } else if (is_string($uri)) {
             $curl->get(self::$url_reference."/{$uri}");
 
         } else {
@@ -86,20 +86,20 @@ class CittaApi
         }
 
         // redirect URI
-        while (300 <= $curl->http_status_code && $curl->http_status_code < 400){
+        while (300 <= $curl->http_status_code && $curl->http_status_code < 400) {
             // probably loop
-            if (++$redirects_count > 10){
+            if (++$redirects_count > 10) {
                 throw new CittaException('Too many redirects');
             }
 
             foreach ($curl->response_headers as $header) {
                 // ignore header
-                if (strpos($header, 'Location:') === false){
+                if (strpos($header, 'Location:') === false) {
                     continue;
                 }
 
                 // try new uri
-                $curl->get(strtr($header,[
+                $curl->get(strtr($header, [
                         'Location: ' => '',
                         'location: ' => '',
                         'Location:' => '',
@@ -130,12 +130,12 @@ class CittaApi
         $api = self::run($uri);
 
         // resquest error
-        if ($api->error && $api->http_status_code){
+        if ($api->error && $api->http_status_code) {
             throw new CittaException("HTTP Status {$api->http_status_code} Error");
         }
 
         // curl error
-        if ($api->error){
+        if ($api->error) {
             throw new CittaException($api->error_message);
         }
 
