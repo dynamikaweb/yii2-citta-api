@@ -166,19 +166,19 @@ class CittaApi
      * @see yii\data\ArrayDataProvider
      *
      * @param array|string $uri 
-     * @param array|void $dataProviderParams
-     * @param array|void $cacheParams
+     * @param array $dataProviderParams
+     * @param integer $duration
      * 
      * @throws dynamikaweb\api\CittaException
      * 
      * @return object
      */
-    public static function cacheFindAll($uri, $dataProviderParams = [], $cacheParams = [])
+    public static function cacheFindAll($uri, $dataProviderParams = [], $duration = null)
     {
-        $key = base64_encode($uri);
+        $key = base64_encode(self::getUrlTo($uri));
 
         if (!Yii::$app->cache->exists($key)){
-            Yii::$app->cache->set($key, self::findAll($uri, $dataProviderParams), $cacheParams);
+            Yii::$app->cache->set($key, self::findAll($uri, $dataProviderParams), $duration);
         }
 
         return Yii::$app->cache->get($key);
@@ -192,7 +192,7 @@ class CittaApi
      * @see yii\data\ArrayDataProvider
      *
      * @param array|string $uri 
-     * @param array|void $dataProviderParams
+     * @param array $dataProviderParams
      * 
      * @throws dynamikaweb\api\CittaException
      * 
