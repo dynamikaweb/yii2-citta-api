@@ -1,30 +1,33 @@
 <?php
 /**
+ *
+ * @author Rodrigo Dornelles <rodrigo@dornelles.me> <rodrigo@dynamika.com.br>
+ * 
  * @copyright Copyright (c) 2019 Dynamika Web
  * @link https://github.com/dynamikaweb/yii2-citta-api
  * @license http://www.opensource.org/licenses/bsd-license.php New BSD License
  */
+
 namespace dynamikaweb\api;
 
+use Yii;
+
 /** 
- *
- * @author Rodrigo Dornelles <rodrigo@dornelles.me> <rodrigo@dynamika.com.br>
- * @version 0.1  (28/04/2020)
- * 
+ * dynamikaweb\api\CittaApi 
  */
 class CittaApi
 {   
     /**
-     * @param string $url_reference
-     * @param object $instance 
+     * @param string $url_base
+     * @param integer $max_redirect 
      */
-    private static $url_reference;
-    private static $instance;
+    private static $url_base;
+    private static $max_redirect = 10;
 
     /** 
      * __construct
      * 
-     * @see Sigleton Pattern
+     * @deprecated
      */ 
     private function  __construct()
     {
@@ -32,117 +35,202 @@ class CittaApi
     }
 
     /**
-     * url
+     * setUrlBase
      * 
-     * @see Sigleton Pattern
-     *
-     * @param array|void $url_reference
-     * @return object self
-     * 
+     * @param string $uri
      */
-    public static function url($uri = null)
-    {   
-        // change API URI
-        if ($uri !== null) {
-            self::$url_reference = $uri;
-        }
-
-        // create object
-        if (self::$instance === null) {
-            self::$instance = new self;
-        }
-
-        // unice instance
-        return self::$instance;
+    public static function setUrlBase($uri)
+    {
+        self::$url_base = $uri;
     }
 
     /**
-     * run
+     * getUrlBase
      * 
-     * call @api
+     * @throws dynamikaweb\api\CittaException
      * 
-     * @param string|array $uri
-     * @return object
+     * @return string
      */
-    private static function run($uri)
+    public static function getUrlBase()
     {
-        $curl = new \Curl\Curl();
-        $redirects_count = 0;
+        if (!self::$url_base) {
+            throw new CittaException('URL Base Not Set');
+        }
 
-        // base URI reference
-        if (!self::$url_reference) {
-            throw new CittaException('URI Reference Error');
+        if (!is_string(self::$url_base)){
+            throw new CittaException('URL Base Type Error');
+        }
+
+        return self::$url_base;
+    }
+
+    /**
+     * getUrl
+     * 
+     * @param string|array $uri 
+     * 
+     * @see yii\helpers\Url
+     * @throws dynamikaweb\api\CittaException
+     * 
+     * @return string
+     */
+    public static function getUrlTo($uri)
+    {
+        if (is_array($uri)) {
+            return strtr("{base_url}{uri}",[
+                "{base_url}" => self::getUrlBase(),
+                "{uri}" => \yii\helpers\Url::to($uri)
+            ]);
+        } else if (is_string($uri)) {
+            return strtr("{base_url}/{uri}",[
+                "{base_url}" => self::getUrlBase(),
+                "{uri}" => $uri
+            ]);
         }
         
-        // consult URI
-        if (is_array($uri)) {
-            $curl->get(self::$url_reference.\yii\helpers\Url::to($uri));
-
-        } else if (is_string($uri)) {
-            $curl->get(self::$url_reference."/{$uri}");
-
-        } else {
-            throw new CittaException('URI Type Error');
-        }
-
-        // redirect URI
-        while (300 <= $curl->http_status_code && $curl->http_status_code < 400) {
-            // probably loop
-            if (++$redirects_count > 10) {
-                throw new CittaException('Too many redirects');
-            }
-
-            foreach ($curl->response_headers as $header) {
-                // ignore header
-                if (strpos($header, 'Location:') === false) {
-                    continue;
-                }
-
-                // try new uri
-                $curl->get(strtr($header, [
-                        'Location: ' => '',
-                        'location: ' => '',
-                        'Location:' => '',
-                        'location:' => ''
-                    ])
-                );
-            }
-        }
-
-        // return request
-        return $curl;
+        throw new CittaException('URI Request Type Error');
     }
 
     /**
-     * request
+     * makeRequest
      * 
-     * dataProvider
+     * @param string $uri
+     * 
+     * @return object
+     */
+    private static function makeRequest($uri)
+    {
+        $curl = new \Curl\Curl();
+        $attemps = 0;
+
+        // get link
+        $request = self::getUrlTo($uri);
+
+        // try
+        do {
+            $result = $curl->get($request);
+        }
+        // redirect
+        while (self::remakeRequest($request, $attemps, $result));
+
+        return $result;
+    }  
+
+    /**
+     * remakeRequest
+     * 
+     * @property 
+     * 
+     * @param string $uri
+     * @param integer $attemps
+     * @param object $result
+     * 
+     * @throws dynamikaweb\api\CittaException
+     * 
+     * @return boolean
+     */
+    private static function remakeRequest(&$uri, &$attemps, $result)
+    {
+        // success
+        if (300 > $result->http_status_code || $result->http_status_code >= 400) {
+            return false;
+        }
+
+        // probably loop
+        if ($attemps++ >= self::$max_redirect) {
+            throw new CittaException('Too many redirects');
+        }
+
+        foreach ($result->response_headers as $header) {
+            if (strpos($header, 'Location:') === false) {
+                continue;
+            }
+
+            // new url
+            $uri = strtr($header, [
+                'Location: ' => '',
+                'location: ' => '',
+                'Location:' => '',
+                'location:' => ''
+            ]);
+        }
+
+        return true;
+    }
+
+    /**
+     * cacheFindAll
+     * 
+     * @see yii\helpers\Json
+     * @see yii\helpers\ArrayHelper
+     * @see yii\data\ArrayDataProvider
      *
      * @param array|string $uri 
-     * @return array|void $dataProviderParams
+     * @param array|void $dataProviderParams
+     * @param array|void $cacheParams
      * 
-     * @throws CittaException
+     * @throws dynamikaweb\api\CittaException
      * 
+     * @return object
      */
-    public static function request($uri, $dataProviderParams = [])
+    public static function cacheFindAll($uri, $dataProviderParams = [], $cacheParams = [])
     {
-        // cal; api
-        $api = self::run($uri);
+        $key = base64_encode($uri);
 
-        // resquest error
-        if ($api->error && $api->http_status_code) {
-            throw new CittaException("HTTP Status {$api->http_status_code} Error");
+        if (!Yii::$app->cache->exists($key)){
+            Yii::$app->cache->set($key, self::findAll($uri, $dataProviderParams), $cacheParams);
         }
 
-        // curl error
-        if ($api->error) {
-            throw new CittaException($api->error_message);
+        return Yii::$app->cache->get($key);
+    }
+
+    /**
+     * findAll
+     * 
+     * @see yii\helpers\Json
+     * @see yii\helpers\ArrayHelper
+     * @see yii\data\ArrayDataProvider
+     *
+     * @param array|string $uri 
+     * @param array|void $dataProviderParams
+     * 
+     * @throws dynamikaweb\api\CittaException
+     * 
+     * @return object
+     */
+    public static function findAll($uri, $dataProviderParams = [])
+    {
+        // call api
+        $result = self::makeRequest($uri);
+
+        // http return a error
+        if ($result->error && $result->http_status_code) {
+            throw new CittaException(strtr('HTTP Status {code} Error: {error}', [ 
+                    '{error}' => \yii\helpers\ArrayHelper::getValue(\yii\helpers\Json::decode($result->response, true), 'message', null),
+                    '{code}' => $result->http_status_code
+                 ])
+            );
         }
 
-        // return request
+        // curl return a error
+        if ($result->error) {
+            throw new CittaException($result->error_message);
+        }
+
+        // decode json
+        $data = \yii\helpers\Json::decode($result->response, true);
+        
+        // return response data
         return new \yii\data\ArrayDataProvider(
             \yii\Helpers\ArrayHelper::merge(
-                ['allModels' =>  \yii\helpers\Json::decode($api->response, true)],
+                [
+                    'allModels' =>  \yii\helpers\ArrayHelper::getValue($data, 'data', $data), // adapt data|root for unique patern
+                    'totalCount' => \yii\helpers\ArrayHelper::getValue($data, 'count', count($data)), // total count api            
+                    'pagination' => [
+                        'pageSize' => \yii\helpers\ArrayHelper::getValue($uri, 'size', false),
+                        'page' => false
+                    ]
+                ],
                 $dataProviderParams
             )
         );
