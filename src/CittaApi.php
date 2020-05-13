@@ -57,7 +57,7 @@ class CittaApi
             throw new CittaException('URL Base Not Set');
         }
 
-        if (!is_string(self::$url_base)){
+        if (!is_string(self::$url_base)) {
             throw new CittaException('URL Base Type Error');
         }
 
@@ -77,12 +77,12 @@ class CittaApi
     public static function getUrlTo($uri)
     {
         if (is_array($uri)) {
-            return strtr("{base_url}{uri}",[
+            return strtr("{base_url}{uri}", [
                 "{base_url}" => self::getUrlBase(),
                 "{uri}" => \yii\helpers\Url::to($uri)
             ]);
         } else if (is_string($uri)) {
-            return strtr("{base_url}/{uri}",[
+            return strtr("{base_url}/{uri}", [
                 "{base_url}" => self::getUrlBase(),
                 "{uri}" => $uri
             ]);
@@ -177,7 +177,7 @@ class CittaApi
     {
         $key = base64_encode(self::getUrlTo($uri));
 
-        if (!Yii::$app->cache->exists($key)){
+        if (!Yii::$app->cache->exists($key)) {
             Yii::$app->cache->set($key, self::findAll($uri, $dataProviderParams), $duration);
         }
 
@@ -205,8 +205,17 @@ class CittaApi
 
         // http return a error
         if ($result->error && $result->http_status_code) {
+            try {
+                // catch json error
+                $error = \yii\helpers\Json::decode($result->response, true);
+            }
+            catch (\yii\base\InvalidArgumentException $e) {
+                // catch html error
+                $error['message'] = strip_tags(\yii\helpers\BaseHtmlPurifier::process($result->response));
+            }
+
             throw new CittaException(strtr('HTTP Status {code} Error: {error}', [ 
-                    '{error}' => \yii\helpers\ArrayHelper::getValue(\yii\helpers\Json::decode($result->response, true), 'message', null),
+                    '{error}' => \yii\helpers\ArrayHelper::getValue($error, 'message', null),
                     '{code}' => $result->http_status_code
                  ])
             );
