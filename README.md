@@ -29,20 +29,20 @@ class DemoController extends MyBaseController
     public function actionIndex($unidade, $exercicio)
     {   
         // set url api
-        CittaApi::url("https://example.com");
+        CittaApi::setBaseUrl("https://example.com");
 
         // make requests
-        $categorias = CittaApi::request(['orgaos', 
+        $categorias = CittaApi::findAll(['orgaos', 
             'unidadeGestora' => $unidade,
             'exercicio' => $exercicio
         ]);
 
-        $anos = CittaApi::request(['ano/filtros']);
+        $anos = CittaApi::cacheFindAll(['ano/filtros']);
         
         // return response data
         return $this->render('index', [
-            'categorias' => $categoria->models,
-            'anos' => $anos->models
+            'categorias' => $categoria,
+            'anos' => $anos
         ]);
     }
 }
